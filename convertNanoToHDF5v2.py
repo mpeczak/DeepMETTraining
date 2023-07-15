@@ -14,12 +14,13 @@ widgets=[
 ]
 
 def deltaR(eta1, phi1, eta2, phi2):
-        """ calculate deltaR """
-        dphi = (phi1-phi2)
-        while dphi >  np.pi: dphi -= 2*np.pi
-        while dphi < -np.pi: dphi += 2*np.pi
-        deta = eta1-eta2
-        return np.hypot(deta, dphi)
+    """ calculate deltaR """
+    dphi = (phi1-phi2)
+    while dphi >  np.pi: dphi -= 2*np.pi
+    while dphi < -np.pi: dphi += 2*np.pi
+    deta = eta1-eta2
+
+    return np.hypot(deta, dphi)
 
 def conversion(filename):
    # general setup
@@ -99,7 +100,13 @@ def conversion(filename):
         EVT[e][3] = tree['PV_npvsGood'][e]
         EVT[e][4] = tree['nMuon'][e]
     
-    return X,Y,EVT,XLep
+    '''with h5py.File(output_directory+base_name[:-5]+'.h5', 'w') as h5f:
+        h5f.create_dataset('X',    data=X,   compression='lzf')
+        h5f.create_dataset('Y',    data=Y,   compression='lzf')
+        h5f.create_dataset('EVT',  data=EVT, compression='lzf')
+        h5f.create_dataset('XLep', data=XLep, compression='lzf')'''
+    
+    return X,Y,EVT,XLep, filename
 
 
 if __name__ == '__main__':
@@ -147,7 +154,7 @@ if __name__ == '__main__':
     maxNPF = 4500
     nFeatures = 14
     
-    nworkers = 8
+    nworkers = 4
 
     #input_directory = '/hildafs/home/peczak/DeepMETTraining/test/'
     input_directory = '/export/home/phys/mpeczak/DeepMETTraining/split_nano/'
@@ -158,24 +165,23 @@ if __name__ == '__main__':
     #tree_dict = {}
     filenames = []
     for file in os.listdir(directory):
-    
+
         name = os.path.basename(file)
-        new_name = name.decode("utf-8")
-        filename = input_directory + new_name
+        filename = input_directory + name.decode("utf-8")
         filenames.append(filename)
         #uptree = uproot.open( filename + ':Events')
         #tree = uptree.arrays( varList )
         #maxEntries = len(tree['nPFCands']) if opt.maxevents==-1 else opt.maxevents
         #print (tree)
-    
+
         #tree_dict[filename] = tree
-    
-    
+
+
     #print(tree_dict)
-    
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
         futures = set()
-    
+
         futures.update(executor.submit(conversion, filename) for filename in filenames)
         
         #if(len(futures)==0): 
@@ -191,13 +197,13 @@ if __name__ == '__main__':
             while len(futures) > 0:
                 finished = set(job for job in futures if job.done())
                 for job in finished:
-                    X,Y,EVT,XLep = job.result()
-                    with h5py.File(output_directory+new_name[:-5]+'.h5', 'w') as h5f:
+                    X,Y,EVT,XLep,filename = job.result()
+                    with h5py.File(output_directory+filename[53:-5]+'.h5', 'w') as h5f:
                         h5f.create_dataset('X',    data=X,   compression='lzf')
                         h5f.create_dataset('Y',    data=Y,   compression='lzf')
                         h5f.create_dataset('EVT',  data=EVT, compression='lzf')
                         h5f.create_dataset('XLep', data=XLep, compression='lzf')
-                        #x y evt xlep arrays = job.result, then create hdf5'''
+                        #x y evt xlep arrays = job.result, then create hdf5
                     print (X,Y,EVT,XLep)
                     processed += 1
                 futures -= finished
@@ -209,11 +215,11 @@ if __name__ == '__main__':
             for job in futures: job.cancel()
             raise
         print (X,Y,EVT,XLep)
-    
+
         '''
         with h5py.File(opt.output, 'w') as h5f:
         h5f.create_dataset('X',    data=X,   compression='lzf')
         h5f.create_dataset('Y',    data=Y,   compression='lzf')
         h5f.create_dataset('EVT',  data=EVT, compression='lzf')
-        h5f.create_dataset('XLep', data=XLep, compression='lzf')
+        h5f.create_dataset('XLep', data=XLep, compression='lzf')'''5f.create_dataset('XLep', data=XLep, compression='lzf')
         '''
