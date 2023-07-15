@@ -155,64 +155,64 @@ if __name__ == '__main__':
     #output_directory = '/hildafs/projects/phy230010p/peczak/testdirectory/'
     directory = os.fsencode(input_directory)
 
-#tree_dict = {}
-filenames = []
-for file in os.listdir(directory):
-
-    name = os.path.basename(file)
-    filename = input_directory + name.decode("utf-8")
-    filenames.append(filename)
-    #uptree = uproot.open( filename + ':Events')
-    #tree = uptree.arrays( varList )
-    #maxEntries = len(tree['nPFCands']) if opt.maxevents==-1 else opt.maxevents
-    #print (tree)
-
-    #tree_dict[filename] = tree
-
-
-#print(tree_dict)
-
-with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
-    futures = set()
-
-    futures.update(executor.submit(conversion, filename) for filename in filenames)
+    #tree_dict = {}
+    filenames = []
+    for file in os.listdir(directory):
     
-    #if(len(futures)==0): 
-        #continue
+        name = os.path.basename(file)
+        filename = input_directory + name.decode("utf-8")
+        filenames.append(filename)
+        #uptree = uproot.open( filename + ':Events')
+        #tree = uptree.arrays( varList )
+        #maxEntries = len(tree['nPFCands']) if opt.maxevents==-1 else opt.maxevents
+        #print (tree)
     
-    '''for k,v in tree_dict:
-        futures.update(executor.submit(conversion(v), k, output_directory+k))
-        if(len(futures)==0): 
-            continue'''   
-    try:
-        total = len(futures)
-        processed = 0
-        while len(futures) > 0:
-            finished = set(job for job in futures if job.done())
-            for job in finished:
-                X,Y,EVT,XLep = job.result()
-                with h5py.File(output_directory+filename, 'w') as h5f:
-                    h5f.create_dataset('X',    data=X,   compression='lzf')
-                    h5f.create_dataset('Y',    data=Y,   compression='lzf')
-                    h5f.create_dataset('EVT',  data=EVT, compression='lzf')
-                    h5f.create_dataset('XLep', data=XLep, compression='lzf')
-                    #x y evt xlep arrays = job.result, then create hdf5'''
-                print (X,Y,EVT,XLep)
-                processed += 1
-            futures -= finished
-        del finished
-    except KeyboardInterrupt:
-        print("Ok quitter")
-        for job in futures: job.cancel()
-    except:
-        for job in futures: job.cancel()
-        raise
-    print (X,Y,EVT,XLep)
-
-    '''
-    with h5py.File(opt.output, 'w') as h5f:
-    h5f.create_dataset('X',    data=X,   compression='lzf')
-    h5f.create_dataset('Y',    data=Y,   compression='lzf')
-    h5f.create_dataset('EVT',  data=EVT, compression='lzf')
-    h5f.create_dataset('XLep', data=XLep, compression='lzf')
-    '''
+        #tree_dict[filename] = tree
+    
+    
+    #print(tree_dict)
+    
+    with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
+        futures = set()
+    
+        futures.update(executor.submit(conversion, filename) for filename in filenames)
+        
+        #if(len(futures)==0): 
+            #continue
+        
+        '''for k,v in tree_dict:
+            futures.update(executor.submit(conversion(v), k, output_directory+k))
+            if(len(futures)==0): 
+                continue'''   
+        try:
+            total = len(futures)
+            processed = 0
+            while len(futures) > 0:
+                finished = set(job for job in futures if job.done())
+                for job in finished:
+                    X,Y,EVT,XLep = job.result()
+                    with h5py.File(output_directory+filename, 'w') as h5f:
+                        h5f.create_dataset('X',    data=X,   compression='lzf')
+                        h5f.create_dataset('Y',    data=Y,   compression='lzf')
+                        h5f.create_dataset('EVT',  data=EVT, compression='lzf')
+                        h5f.create_dataset('XLep', data=XLep, compression='lzf')
+                        #x y evt xlep arrays = job.result, then create hdf5'''
+                    print (X,Y,EVT,XLep)
+                    processed += 1
+                futures -= finished
+            del finished
+        except KeyboardInterrupt:
+            print("Ok quitter")
+            for job in futures: job.cancel()
+        except:
+            for job in futures: job.cancel()
+            raise
+        print (X,Y,EVT,XLep)
+    
+        '''
+        with h5py.File(opt.output, 'w') as h5f:
+        h5f.create_dataset('X',    data=X,   compression='lzf')
+        h5f.create_dataset('Y',    data=Y,   compression='lzf')
+        h5f.create_dataset('EVT',  data=EVT, compression='lzf')
+        h5f.create_dataset('XLep', data=XLep, compression='lzf')
+        '''
