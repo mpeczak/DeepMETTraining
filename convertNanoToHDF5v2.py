@@ -191,7 +191,7 @@ if __name__ == '__main__':
                 finished = set(job for job in futures if job.done())
                 for job in finished:
                     X,Y,EVT,XLep = job.result()
-                    with h5py.File(output_directory+filename, 'w') as h5f:
+                    with h5py.File(output_directory+filename[:-5]+'.h5', 'w') as h5f:
                         h5f.create_dataset('X',    data=X,   compression='lzf')
                         h5f.create_dataset('Y',    data=Y,   compression='lzf')
                         h5f.create_dataset('EVT',  data=EVT, compression='lzf')
