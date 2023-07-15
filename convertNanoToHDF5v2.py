@@ -160,7 +160,8 @@ if __name__ == '__main__':
     for file in os.listdir(directory):
     
         name = os.path.basename(file)
-        filename = input_directory + name.decode("utf-8")
+        new_name = name.decode("utf-8")
+        filename = input_directory + new_name
         filenames.append(filename)
         #uptree = uproot.open( filename + ':Events')
         #tree = uptree.arrays( varList )
@@ -191,7 +192,7 @@ if __name__ == '__main__':
                 finished = set(job for job in futures if job.done())
                 for job in finished:
                     X,Y,EVT,XLep = job.result()
-                    with h5py.File(output_directory+filename[:-5]+'.h5', 'w') as h5f:
+                    with h5py.File(output_directory+new_name[:-5]+'.h5', 'w') as h5f:
                         h5f.create_dataset('X',    data=X,   compression='lzf')
                         h5f.create_dataset('Y',    data=Y,   compression='lzf')
                         h5f.create_dataset('EVT',  data=EVT, compression='lzf')
