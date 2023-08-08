@@ -5,8 +5,6 @@ def read_input(inputfile):
     import os
     list_input = open("%s"%inputfile)
     nfiles = 0
-    master_x = []
-    master_y = []
 
     for line in list_input:
         fname = line.rstrip()
@@ -18,27 +16,23 @@ def read_input(inputfile):
         h5f = h5py.File( fname, 'r')
 
         if nfiles == 0:
-            Xarr = [h5f['X']]
-            Yarr = [h5f['Y']]
-        
-        if nfiles%100 == 0 and nfiles != 0:
-            master_x.extend(Xarr)
-            master_y.extend(Yarr)
-            Xarr = [h5f['X']]
-            Yarr = [h5f['Y']]
+            Xarr = h5f['X'][:]
+            Yarr = h5f['Y'][:]
+            
+            Xlist = Xarr.tolist()
+            Ylist = Yarr.tolist()
     
         else:
-            Xarr.append(h5f['X'])
-            Yarr.append(h5f['Y'])
-           #X = np.concatenate((X, h5f['X']), axis=0)
-           #Y = np.concatenate((Y, h5f['Y']), axis=0)
+            Xlist.extend(h5f['X'])
+            Ylist.extend(h5f['Y'])
+            
         h5f.close()
         nfiles += 1
     
     print("finish reading files")
     
-    X = np.array(master_x)
-    Y = np.array(master_y)
+    X = np.array(Xlist)
+    Y = np.array(Ylist)
     return X, Y
 
 def preProcessing(X, EVT=None):
