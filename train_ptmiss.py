@@ -28,7 +28,7 @@ from tensorflow import train
 # Local imports
 from cyclical_learning_rate import CyclicLR
 from weighted_sum_layer import weighted_sum_layer
-from utils import preProcessing, plot_history, read_input
+from utilsv2 import preProcessing, plot_history, read_input
 from loss import custom_loss
 
 def create_model(n_features=8, n_features_cat=3, n_dense_layers=3, activation='tanh', with_bias=False):
