@@ -21,18 +21,25 @@ logger.addHandler(handler)
 def get_args():
     """Get command line arguments"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('inputfile', metavar='<inputfile>', type=str,
-        help='input NanoAOD file.')
-    parser.add_argument('outputfile', metavar='<outputfile>', type=str,
-        help='output HDF5 file')
-    parser.add_argument('-v', '--verbose', action='store_true',
-        help='show logs')
-    parser.add_argument('-l', '--leptons',
-        metavar='<leptons>', type=int, default=2,
-        help='number of leptons to remove from pfcands (default is 2)')
+    parser.add_argument(
+        "inputfile", metavar="<inputfile>", type=str, help="input text file."
+    )
+    parser.add_argument(
+        "outputfile", metavar="<outputfile>", type=str, help="output HDF5 file"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="show logs")
+    parser.add_argument(
+        "-l",
+        "--leptons",
+        metavar="<leptons>",
+        type=int,
+        default=2,
+        help="number of leptons to remove from pfcands (default is 2)",
+    )
     return parser.parse_args()
 
-def remove_lepton(pfcands, lepton, r_max=0.001):
+
+def delta_r_matching(pfcands, lepton, r_max=0.001):
     """
     Remove deltaR matched lepton from pfcands. A lepton is matched to the
     nearest pfcand if they are closer than a deltaR of r_max.
@@ -43,96 +50,88 @@ def remove_lepton(pfcands, lepton, r_max=0.001):
     match = (ipf == imin) & (dr < r_max)
     return pfcands[~match]
 
-### Main program ###
 
-def convert(args):
+def convert_file(inputfile, outputfile, n_leptons=2, verbose=False):
     """Get training data from a NanoAOD and save it to an HDF5 file"""
     # Configure logger if enabled
-    if args.verbose:
+    if verbose:
         logger.setLevel(level=logging.INFO)
 
     # Supress warnings about names of unused branches from coffea
-    warnings.filterwarnings('ignore', message='Found duplicate branch .*Jet_')
+    warnings.filterwarnings("ignore", message="Found duplicate branch .*Jet_")
 
     # Get events from NanoAOD
-    logger.info('Fetching events')
+    logger.info("Fetching events")
     events = NanoEventsFactory.from_root(
-        args.inputfile,
-        schemaclass=PFNanoAODSchema
+        inputfile, schemaclass=PFNanoAODSchema
     ).events()
 
     # Event selection
-    logger.info(f'Num events before selection: {len(events)}')
+    logger.info(f"Num events before selection: {len(events)}")
     n_lep = ak.num(events.Muon) + ak.num(events.Electron)
-    events = events[n_lep >= args.leptons]
-    logger.info(f'Num events after selection:  {len(events)}')
+    events = events[n_lep >= n_leptons]
+    logger.info(f"Num events after selection:  {len(events)}")
 
     # Get training data collections and leading leptons
     pfcands = events.PFCands
     genMET = events.GenMET
     leptons = ak.concatenate([events.Muon, events.Electron], axis=1)
     leptons = leptons[ak.argsort(leptons.pt, axis=-1, ascending=False)]
-    leptons = leptons[:,:args.leptons]
+    leptons = leptons[:, :n_leptons]
 
     # DeltaR matching
-    logger.info('Removing leading leptons from pfcand list')
-    for ilep in range(args.leptons):
-        logger.info(f'Removing lepton {ilep+1}')
-        pfcands = remove_lepton(pfcands, leptons[:,ilep])
-    logger.info('Lepton matching completed')
+    logger.info("Removing leading leptons from pfcand list")
+    for ilep in range(n_leptons):
+        logger.info(f"DeltaR matching lepton {ilep+1}")
+        pfcands = delta_r_matching(pfcands, leptons[:, ilep])
+    logger.info("Lepton matching completed")
 
     # px and py are not computed or saved until they are initialized
-    logger.info('Computing additional quantities')
-    pfcands['px'] = pfcands.px
-    pfcands['py'] = pfcands.py
-    genMET['px'] = genMET.px
-    genMET['py'] = genMET.py
-    logger.info(f'Additional computations completed')
+    logger.info("Computing additional quantities")
+    pfcands["px"] = pfcands.px
+    pfcands["py"] = pfcands.py
+    genMET["px"] = genMET.px
+    genMET["py"] = genMET.py
+    logger.info(f"Additional computations completed")
 
     # Format training data
-    logger.info('Preparing training inputs')
+    logger.info("Preparing training inputs")
     pfcands_fields = []
-    npf = ak.max(ak.num(pfcands)) if args.auto_npf else args.npf
+    npf = ak.max(ak.num(pfcands)) if auto_npf else npf_max
 
     for field_name in input_fields:
-        logger.info(f'Processing PFCands_{field_name}')
+        logger.info(f"Processing PFCands_{field_name}")
         field = pfcands[field_name]
         if field_name in list(labels):
-            pass # todo: conversion to labels
+            pass  # todo: conversion to labels
         field = ak.pad_none(field, npf, axis=-1, clip=True)
-        field = ak.fill_none(field, args.fill)
+        field = ak.fill_none(field, padding)
         pfcands_fields.append(field)
 
-    logger.info('Preparing training outputs')
+    logger.info("Preparing training outputs")
     genMET_fields = ak.unzip(genMET[output_fields])
 
     # Save data to file
-    logger.info('Converting to numpy arrays')
+    logger.info("Converting to numpy arrays")
     X = np.array(pfcands_fields)
     Y = np.array(genMET_fields)
 
-    logger.info('Saving to HDF5 file')
-    with h5py.File(args.outputfile, 'w') as h5f:
-        h5f.create_dataset('X', data=X, compression='lzf')
-        h5f.create_dataset('Y', data=Y, compression='lzf')
+    logger.info("Saving to HDF5 file")
+    with h5py.File(outputfile, "w") as h5f:
+        h5f.create_dataset("X", data=X, compression="lzf")
+        h5f.create_dataset("Y", data=Y, compression="lzf")
 
-    logger.info(f'Inputs shape:  {np.shape(X)}')   # (nfields,nevents,npf)
-    logger.info(f'Outputs shape: {np.shape(Y)}')   # (nfields,nevents)
-    logger.info(f'Training data saved to {args.outputfile}')
+    logger.info(f"Inputs shape:  {np.shape(X)}")  # (nfields,nevents,npf)
+    logger.info(f"Outputs shape: {np.shape(Y)}")  # (nfields,nevents)
+    logger.info(f"Training data saved to {outputfile}")
 
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('inputfile', metavar='<inputfile>', type=str,
-        help='input NanoAOD file.')
-    parser.add_argument('outputfile', metavar='<outputfile>', type=str,
-        help='output HDF5 file')
-    parser.add_argument('-v', '--verbose', action='store_true',
-        help='show logs')
-    parser.add_argument('-l', '--leptons',
-        metavar='<leptons>', type=int, default=2,
-        help='number of leptons to remove from pfcands (default is 2)')
+    try:
+        args = get_args()
+    except KeyboardInterrupt:
+        sys.exit("\nStopping early.")
 
 
 
@@ -168,41 +167,49 @@ if __name__ == '__main__':
                         # empty values are padded
     fill = -999         # Padding value used to fill empty PFCands entries
     
-    nworkers = 2
+    nworkers = 2 # number of parallel processes
 
-
+    #Take each file from the text file and add it to an array. 
+    #Add a nickname to a different array, so if we want to print/return we just use that
     with open(args.inputfile) as file_in:
-        old_file_names = []
-        new_file_names = []
+        file_names = []
+        short_names = []
         i = 0
         for line in file_in:
-            old_file_names.append(line)
-            new_file_names.append("file_" + str(i) + ".root")
+            file_names.append(line)
+            short_names.append("NanoAOD file " + str(i))
             i = i+1
-    
 
-    for i in range(len(old_file_names)):
-        os.rename(old_file_names[i], new_file_names[i])
+            
+
+    #Use concurrent futures to add each "job" (every conversion) to a futures pool. 
+    #The executors are the jobs that are currently converting
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=nworkers) as executor:
         futures = set()
 
-        futures.update(executor.submit(convert, line) for line in new_file_names)
+        futures.update(executor.submit(convert_file, name, args.outputfile, 
+                                       n_leptons=2, verbose=False) for name in file_names)
         
         try:
             total = len(futures)
             processed = 0
+        #Until futures is empty (there are files left to convert), keep adding jobs so that
+        #there are nworkers jobs happening
             while len(futures) > 0:
                 finished = set(job for job in futures if job.done())
+                j = 0
+                #Once done, move the job to "finished"
                 for job in finished:
                     X,Y,line = job.result()
-                    #line[:-5]+'.h5'
-                    with h5py.File(get_args.outputfile, 'w') as h5f:
+                    print (short_names[j])
+                    #For each finished job, return the datasets you want (and print)
+                    with h5py.File(args.outputfile, 'w') as h5f:
                         h5f.create_dataset('X',    data=X,   compression='lzf')
                         h5f.create_dataset('Y',    data=Y,   compression='lzf')
-                    print (X,Y)
                     processed += 1
                 futures -= finished
+                j = j+1
             del finished
         except KeyboardInterrupt:
             print("Ok quitter")
